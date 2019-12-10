@@ -15,7 +15,44 @@ from mmdet.apis import init_dist
 from mmdet.core import coco_eval, results2json, wrap_fp16_model
 from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.models import build_detector
-from icecream import ic
+from mmdet.core import eval_map
+import numpy as np
+
+
+def voc_eval(result_file, dataset, iou_thr=0.5):
+    det_results = mmcv.load(result_file)
+    gt_bboxes = []
+    gt_labels = []
+    gt_ignore = []
+    for i in range(len(dataset)):
+        ann = dataset.get_ann_info(i)
+        bboxes = ann['bboxes']
+        labels = ann['labels']
+        if 'bboxes_ignore' in ann and ann['bboxes_ignore'].shape[0] > 0:
+            ignore = np.concatenate([
+                np.zeros(bboxes.shape[0], dtype=np.bool),
+                np.ones(ann['bboxes_ignore'].shape[0], dtype=np.bool)
+            ])
+            gt_ignore.append(ignore)
+            bboxes = np.vstack([bboxes, ann['bboxes_ignore']])
+            labels = np.concatenate([labels, ann['labels_ignore']])
+        gt_bboxes.append(bboxes)
+        gt_labels.append(labels)
+    if not gt_ignore:
+        gt_ignore = None
+    if hasattr(dataset, 'year') and dataset.year == 2007:
+        dataset_name = 'voc07'
+    else:
+        dataset_name = dataset.CLASSES
+    eval_map(
+        det_results,
+        gt_bboxes,
+        gt_labels,
+        gt_ignore=gt_ignore,
+        scale_ranges=None,
+        iou_thr=iou_thr,
+        dataset=dataset_name,
+        print_summary=True)
 
 def single_gpu_test(model, data_loader, show=False):
     model.eval()
@@ -246,7 +283,6 @@ def main():
                                  args.gpu_collect)
 
     rank, _ = get_dist_info()
-    ic("xxx")
     if args.out and rank == 0:
         print('\nwriting results to {}'.format(args.out))
         mmcv.dump(outputs, args.out)
@@ -259,8 +295,8 @@ def main():
             else:
                 if not isinstance(outputs[0], dict):
                     result_files = results2json(dataset, outputs, args.out)
-                    mmcv.dump(result_files, "result_file.json")
-                    coco_eval(result_files, eval_types, dataset.coco)
+                   # coco_eval(result_files, eval_types, dataset.coco)
+                    voc_eval(args.out, dataset, 0.5)
                 else:
                     for name in outputs[0]:
                         print('\nEvaluating {}'.format(name))
@@ -268,7 +304,8 @@ def main():
                         result_file = args.out + '.{}'.format(name)
                         result_files = results2json(dataset, outputs_,
                                                     result_file)
-                        coco_eval(result_files, eval_types, dataset.coco)
+                        voc_eval(result_file, dataset, 0.5)
+                        #coco_eval(result_files, eval_types, dataset.coco)
 
     # Save predictions in the COCO json format
     if args.json_out and rank == 0:
