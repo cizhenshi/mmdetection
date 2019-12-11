@@ -1,33 +1,20 @@
 # model settings
 norm_cfg = dict(type='BN', requires_grad=False)
 model = dict(
-    type='FasterRCNN',
-    pretrained='open-mmlab://resnet50_caffe',
+    type='DA_FasterRCNN',
+    pretrained='open-mmlab://vgg16_caffe',
     backbone=dict(
-        type='ResNet',
-        depth=50,
-        num_stages=3,
-        strides=(1, 2, 2),
-        dilations=(1, 1, 1),
-        out_indices=(2, ),
+        type='VGG',
+        depth=16,
+        num_stages=5,
+        out_indices=(4,),
         frozen_stages=1,
-        norm_cfg=norm_cfg,
-        norm_eval=True,
-        style='caffe'),
-    shared_head=dict(
-        type='ResLayer',
-        depth=50,
-        stage=3,
-        stride=2,
-        dilation=1,
-        style='caffe',
-        norm_cfg=norm_cfg,
-        norm_eval=True),
+        style='pytorch'),
     rpn_head=dict(
         type='RPNHead',
-        in_channels=1024,
+        in_channels=512,
         feat_channels=1024,
-        anchor_scales=[2, 4, 8, 16, 32],
+        anchor_scales=[8, 16, 32],
         anchor_ratios=[0.5, 1.0, 2.0],
         anchor_strides=[16],
         target_means=[.0, .0, .0, .0],
@@ -45,7 +32,7 @@ model = dict(
         with_avg_pool=True,
         roi_feat_size=7,
         in_channels=2048,
-        num_classes=81,
+        num_classes=9,
         target_means=[0., 0., 0., 0.],
         target_stds=[0.1, 0.1, 0.2, 0.2],
         reg_class_agnostic=False,
@@ -103,10 +90,12 @@ test_cfg = dict(
     rcnn=dict(
         score_thr=0.05, nms=dict(type='nms', iou_thr=0.5), max_per_img=100))
 # dataset settings
-dataset_type = 'CocoDataset'
-data_root = '../data/cityscapes/'
-img_norm_cfg = dict(
-    mean=[102.9801, 115.9465, 122.7717], std=[1.0, 1.0, 1.0], to_rgb=False)
+train_dataset_type = 'DADataset'
+test_dataset_type = "CityscapesDataset"
+s_data_root = '../data/cityscapes/'
+t_data_root = '../data/foggy_cityscapes/'
+test_data_root = '../data/cityscapes/'
+img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
@@ -116,6 +105,15 @@ train_pipeline = [
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels']),
+]
+target_pipeline = [
+    dict(type='LoadImageFromFile'),
+    dict(type='Resize', img_scale=(1200, 600), keep_ratio=True),
+    dict(type='RandomFlip', flip_ratio=0.5),
+    dict(type='Normalize', **img_norm_cfg),
+    dict(type='Pad', size_divisor=32),
+    dict(type='DefaultFormatBundle'),
+    dict(type='Collect', keys=['img']),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -136,19 +134,22 @@ data = dict(
     imgs_per_gpu=2,
     workers_per_gpu=2,
     train=dict(
-        type=dataset_type,
-        ann_file=data_root + 'cityscapes_train.json',
-        img_prefix=data_root,
-        pipeline=train_pipeline),
+        type=train_dataset_type,
+        ann_file=s_data_root + 'cityscapes_train.json',
+        t_ann_file=t_data_root + 'foggy_cityscapes_train.json',
+        img_prefix=s_data_root,
+        t_img_prefix=t_data_root,
+        s_pipeline=train_pipeline,
+        t_pipeline=target_pipeline),
     val=dict(
-        type=dataset_type,
-        ann_file=data_root + 'cityscapes_val.json',
-        img_prefix=data_root,
+        type=test_dataset_type,
+        ann_file=test_data_root + 'cityscapes_val.json',
+        img_prefix=test_data_root,
         pipeline=test_pipeline),
     test=dict(
-        type=dataset_type,
-        ann_file=data_root + 'cityscapes_val.json',
-        img_prefix=data_root,
+        type=test_dataset_type,
+        ann_file=test_data_root + 'cityscapes_val.json',
+        img_prefix=test_data_root,
         pipeline=test_pipeline))
 # optimizer
 optimizer = dict(type='SGD', lr=5e-3, momentum=0.9, weight_decay=0.0005)
@@ -159,7 +160,7 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
-    step=[6])
+    step=[8, 11])
 checkpoint_config = dict(interval=1)
 # yapf:disable
 log_config = dict(
@@ -170,7 +171,7 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 8
+total_epochs = 12
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = './work_dirs/city_base'
