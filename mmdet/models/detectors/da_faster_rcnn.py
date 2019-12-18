@@ -6,6 +6,8 @@ import torch.nn as nn
 from mmdet.core import bbox2result, bbox2roi, build_assigner, build_sampler
 from .. import builder
 from .test_mixins import BBoxTestMixin, MaskTestMixin, RPNTestMixin
+from ..domain_classifier import DC_img
+from icecream import ic
 
 @DETECTORS.register_module
 class DA_FasterRCNN(TwoStageDetector):
@@ -30,6 +32,7 @@ class DA_FasterRCNN(TwoStageDetector):
             train_cfg=train_cfg,
             test_cfg=test_cfg,
             pretrained=pretrained)
+        self.DC_img = DC_img(512, 512)
 
     def extract_feat(self, img):
         """Directly extract features from the backbone+neck
@@ -41,14 +44,21 @@ class DA_FasterRCNN(TwoStageDetector):
 
     def forward_train(self, source, target):
         loss1 = self.forward_deploy(**source)
-        return loss1
-        #loss2 = self.forward_deploy(**target)
+        target["source"] = False
+        loss2 = self.forward_deploy(**target)
+        losses = dict()
+        for key in loss1:
+            if key not in loss2:
+                losses[key] = loss1[key]
+            else:
+                losses[key] = (loss1[key] + loss2[key]) / 2.0
+        return losses
 
     def forward_deploy(self,
                       img,
                       img_meta,
-                      gt_bboxes,
-                      gt_labels,
+                      gt_bboxes=None,
+                      gt_labels=None,
                       gt_bboxes_ignore=None,
                       gt_masks=None,
                       source=True):
@@ -83,7 +93,10 @@ class DA_FasterRCNN(TwoStageDetector):
         x = self.extract_feat(img)
 
         losses = dict()
-
+        # comput dc loss
+        dc_score = self.DC_img(x)
+        dc_loss = self.DC_img.loss(dc_score, source)
+        losses.update(dc_loss)
         # RPN forward and loss
         if self.with_rpn and source:
             rpn_outs = self.rpn_head(x)
@@ -99,12 +112,13 @@ class DA_FasterRCNN(TwoStageDetector):
             proposal_list = self.rpn_head.get_bboxes(*proposal_inputs)
         else:
             rpn_outs = self.rpn_head(x)
-            rpn_loss_inputs = rpn_outs + (gt_bboxes, img_meta,
-                                          self.train_cfg.rpn)
             proposal_cfg = self.train_cfg.get('rpn_proposal',
                                               self.test_cfg.rpn)
             proposal_inputs = rpn_outs + (img_meta, proposal_cfg)
             proposal_list = self.rpn_head.get_bboxes(*proposal_inputs)
+
+        if not source:
+            return losses
 
         # assign gts and sample proposals
         if source and (self.with_bbox or self.with_mask):

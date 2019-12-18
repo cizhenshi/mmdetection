@@ -1,5 +1,5 @@
 import torch
-
+from icecream import ic
 
 class AnchorGenerator(object):
     """
@@ -52,7 +52,6 @@ class AnchorGenerator(object):
             ],
             dim=-1).round()
         # yapf: enable
-
         return base_anchors
 
     def _meshgrid(self, x, y, row_major=True):

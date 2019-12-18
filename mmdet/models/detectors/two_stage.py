@@ -7,7 +7,6 @@ from ..registry import DETECTORS
 from .base import BaseDetector
 from .test_mixins import BBoxTestMixin, MaskTestMixin, RPNTestMixin
 
-
 @DETECTORS.register_module
 class TwoStageDetector(BaseDetector, RPNTestMixin, BBoxTestMixin,
                        MaskTestMixin):
@@ -164,7 +163,6 @@ class TwoStageDetector(BaseDetector, RPNTestMixin, BBoxTestMixin,
             dict[str, Tensor]: a dictionary of loss components
         """
         x = self.extract_feat(img)
-
         losses = dict()
 
         # RPN forward and loss
@@ -263,9 +261,7 @@ class TwoStageDetector(BaseDetector, RPNTestMixin, BBoxTestMixin,
     def simple_test(self, img, img_meta, proposals=None, rescale=False):
         """Test without augmentation."""
         assert self.with_bbox, "Bbox head must be implemented."
-
         x = self.extract_feat(img)
-
         proposal_list = self.simple_test_rpn(
             x, img_meta, self.test_cfg.rpn) if proposals is None else proposals
 

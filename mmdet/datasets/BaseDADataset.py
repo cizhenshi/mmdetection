@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 
 from .pipelines import Compose
 from .registry import DATASETS
-
+from icecream import ic
 
 @DATASETS.register_module
 class BaseDADataset(Dataset):

@@ -1,8 +1,7 @@
 # model settings
-norm_cfg = dict(type='BN', requires_grad=False)
 model = dict(
     type='FasterRCNN',
-    pretrained='open-mmlab://vgg16_caffe',
+    # pretrained='open-mmlab://vgg16_caffe',
     backbone=dict(
         type='VGG',
         depth=16,
@@ -47,7 +46,7 @@ train_cfg = dict(
             type='MaxIoUAssigner',
             pos_iou_thr=0.7,
             neg_iou_thr=0.3,
-            min_pos_iou=0.3,
+            min_pos_iou=0.0,
             ignore_iof_thr=-1),
         sampler=dict(
             type='RandomSampler',
@@ -70,7 +69,7 @@ train_cfg = dict(
             type='MaxIoUAssigner',
             pos_iou_thr=0.5,
             neg_iou_thr=0.5,
-            min_pos_iou=0.5,
+            min_pos_iou=0,
             ignore_iof_thr=-1),
         sampler=dict(
             type='RandomSampler',
@@ -93,7 +92,7 @@ test_cfg = dict(
 # dataset settings
 dataset_type = 'CityscapesDataset'
 data_root = '../data/cityscapes/'
-img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
+img_norm_cfg = dict(mean=[102.9801, 115.9465, 122.7717], std=[1, 1, 1], to_rgb=False)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
@@ -112,8 +111,8 @@ test_pipeline = [
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
-            dict(type='RandomFlip'),
             dict(type='Normalize', **img_norm_cfg),
+            dict(type='RandomFlip'),
             dict(type='Pad', size_divisor=32),
             dict(type='ImageToTensor', keys=['img']),
             dict(type='Collect', keys=['img']),
@@ -137,6 +136,11 @@ data = dict(
         ann_file=data_root + 'cityscapes_val.json',
         img_prefix=data_root,
         pipeline=test_pipeline))
+    # test=dict(
+    #     type=dataset_type,
+    #     ann_file="../data/foggy_cityscapes/" + 'foggy_cityscapes_val.json',
+    #     img_prefix="../data/foggy_cityscapes/",
+    #     pipeline=test_pipeline))
 # optimizer
 optimizer = dict(type='SGD', lr=5e-3, momentum=0.9, weight_decay=0.0005)
 optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
@@ -153,14 +157,14 @@ log_config = dict(
     interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
+        dict(type='TensorboardLoggerHook')
     ])
 # yapf:enable
 # runtime settings
 total_epochs = 12
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/city_base'
-load_from = None
+work_dir = './work_dirs/city_base2'
+load_from = "../data/vgg16_caffe.pth"
 resume_from = None
 workflow = [('train', 1)]

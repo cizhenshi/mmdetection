@@ -8,7 +8,6 @@ from mmdet.ops import nms
 from ..registry import HEADS
 from .anchor_head import AnchorHead
 
-
 @HEADS.register_module
 class RPNHead(AnchorHead):
 

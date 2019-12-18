@@ -3,7 +3,7 @@ from pycocotools.coco import COCO
 
 from .custom import CustomDataset
 from .registry import DATASETS
-
+from icecream import ic
 
 @DATASETS.register_module
 class CocoDataset(CustomDataset):
