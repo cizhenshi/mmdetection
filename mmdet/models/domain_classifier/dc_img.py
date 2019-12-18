@@ -16,19 +16,18 @@ class DC_img(nn.Module):
     """img level domain classifier"""
 
     def __init__(self,
-                 in_channel=512,
-                 out_channel=512,
-                 conv_cfg=None,
-                 norm_cfg=None,
+                 in_channels=512,
+                 feat_channels=512,
+                 grl_weight=-0.1,
                  loss_cls=dict(
                      type='CrossEntropyLoss',
                      use_sigmoid=True,
                      loss_weight=0.1),):
         super(DC_img, self).__init__()
-        self.da_conv = nn.Conv2d(in_channel, 512, kernel_size=1, stride=1)
-        self.da_cls = nn.Conv2d(512, 1, kernel_size=1, stride=1)
+        self.da_conv = nn.Conv2d(in_channels, feat_channels, kernel_size=1, stride=1)
+        self.da_cls = nn.Conv2d(feat_channels, 1, kernel_size=1, stride=1)
         self.loss_cls = build_loss(loss_cls)
-        self.grl_img = GradientScalarLayer(-0.1)
+        self.grl_img = GradientScalarLayer(grl_weight)
         self.init_weights()
 
     def init_weights(self):
@@ -55,11 +54,8 @@ class DC_img(nn.Module):
         labels[:, :] = domain_label
         cls_score = cls_score.view(N, -1)
         labels = labels.view(N, -1)
-        losses['loss_dc_img'] = 0.1*F.binary_cross_entropy_with_logits(
-            cls_score, labels
-        )
-        # losses['loss_dc_img'] = self.loss_cls(
-        #             cls_score,
-        #             labels,
-        #             reduction_override=reduction_override)
+        losses['loss_dc_img'] = self.loss_cls(
+                    cls_score,
+                    labels,
+                    reduction_override=reduction_override)
         return losses

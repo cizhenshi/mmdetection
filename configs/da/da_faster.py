@@ -21,6 +21,13 @@ model = dict(
         loss_cls=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
         loss_bbox=dict(type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=1.0)),
+    da_img=dict(
+        type='DC_img',
+        in_channels=512,
+        feat_channels=512,
+        grl_weight=-0.1,
+        loss_cls=dict(
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=0.1)),
     bbox_roi_extractor=dict(
         type='SingleRoIExtractor',
         roi_layer=dict(type='RoIAlign', out_size=7, sample_num=2),

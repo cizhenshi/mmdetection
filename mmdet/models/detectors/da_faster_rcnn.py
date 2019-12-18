@@ -19,6 +19,7 @@ class DA_FasterRCNN(TwoStageDetector):
                  bbox_head,
                  train_cfg,
                  test_cfg,
+                 da_img=None,
                  neck=None,
                  shared_head=None,
                  pretrained=None):
@@ -33,6 +34,8 @@ class DA_FasterRCNN(TwoStageDetector):
             test_cfg=test_cfg,
             pretrained=pretrained)
         self.DC_img = DC_img(512, 512)
+        if da_img is not None:
+            self.da_img = builder.build_head(da_img)
 
     def extract_feat(self, img):
         """Directly extract features from the backbone+neck
@@ -94,8 +97,8 @@ class DA_FasterRCNN(TwoStageDetector):
 
         losses = dict()
         # comput dc loss
-        dc_score = self.DC_img(x)
-        dc_loss = self.DC_img.loss(dc_score, source)
+        dc_score = self.da_img(x)
+        dc_loss = self.da_img.loss(dc_score, source)
         losses.update(dc_loss)
         # RPN forward and loss
         if self.with_rpn and source:
