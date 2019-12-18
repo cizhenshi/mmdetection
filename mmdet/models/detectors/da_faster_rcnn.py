@@ -33,7 +33,6 @@ class DA_FasterRCNN(TwoStageDetector):
             train_cfg=train_cfg,
             test_cfg=test_cfg,
             pretrained=pretrained)
-        self.DC_img = DC_img(512, 512)
         if da_img is not None:
             self.da_img = builder.build_head(da_img)
 
