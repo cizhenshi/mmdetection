@@ -12,7 +12,7 @@ from mmdet.core.bbox.assigners.assign_result import AssignResult
 from icecream import ic
 
 @DETECTORS.register_module
-class DA_FasterRCNN(TwoStageDetector):
+class MAF(TwoStageDetector):
 
     def __init__(self,
                  backbone,
@@ -28,7 +28,7 @@ class DA_FasterRCNN(TwoStageDetector):
                  neck=None,
                  shared_head=None,
                  pretrained=None):
-        super(DA_FasterRCNN, self).__init__(
+        super(MAF, self).__init__(
             backbone=backbone,
             neck=neck,
             shared_head=shared_head,
@@ -51,6 +51,16 @@ class DA_FasterRCNN(TwoStageDetector):
         self.da_scale = da_scale
         if da_scale is not None:
             self.da_scale = builder.build_head(da_scale)
+
+    def inverse_pixel_shuffle(self, x, scale_factor):
+        N, C, H, W = x.shape
+        oh = H / scale_factor
+        ow = W / scale_factor
+        out = x.new(N, C*scale_factor*scale_factor, oh, ow)
+        for i in range(oh):
+            for j in range(ow):
+                out[:, :, i, j] = x[:, :, i:i+scale_factor, j:j+scale_factor].reshape(N, -1)
+        return out
 
     def extract_feat(self, img):
         """Directly extract features from the backbone+neck
@@ -255,7 +265,7 @@ class DA_FasterRCNN(TwoStageDetector):
         if self.da_ins is not None:
             with torch.no_grad():
                 rpn_outs = self.rpn_head(x)
-                proposal_cfg = self.train_cfg.get('rpn_proposal',
+                proposal_cfg = self.train_cfg.get('target_rpn_proposal',
                                                   self.test_cfg.rpn)
                 proposal_inputs = rpn_outs + (img_meta, proposal_cfg)
                 proposal_list = self.rpn_head.get_bboxes(*proposal_inputs)
